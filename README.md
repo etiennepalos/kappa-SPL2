@@ -24,21 +24,24 @@ for fragment A, fragment B and the full complex COMPLEX.
 2. --spin: the spin of the molecule (int) (default=0)
 3. --basis: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf) 
 4. --func: the functional that you want to run (str) (default="coskos-SPL2)
-For func use mp2, spl2, f1 or f1ab as base and add a prefix as coskos-, cos-, ksskos-, k- or no prefix.
+For func use mp2, spl2, f1, f1ab, or mpac25 as base and add a prefix as coskos-, cos-, ksskos-, k- or no prefix.
+5. --cp: enable Boys-Bernardi counterpoise correction for BSSE (flag) (default=False)
 
 ## Other Support:
 run_all/
 run_all.py can be found in the run_all directory, which runs all the 20 functionals and outputs a .json file.
-run_all_generalized.py extends run_all functionality to clusters of arbitrary size (N-fragment)
+run_all_generalized.py works for clusters of arbitrary size (N-fragment)
 
 kappa_tools/
 split_complex_to_monomers.py is in the kappa_tools directory, and it splits N-fragment XYZ file into the directory structure specified above.
+split_complex_to_mbe.py generates all possible 1-mers, 2-mers, ..., n-mers for meny-body expansion (MBE) calculations.
 
 ### Input parameters of this are:
 1. --charge: the charge of the molecule (int) (default=0)
 2. --charges: list of fragment charges, them complex (int) (default=0)
 3. --spin: the spin of the molecule (int) (default=0)
-4. --basis: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf) 
+4. --basis: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf)
+5. --cp: enable Boys-Bernardi counterpoise correction for BSSE (flag) (default=False)
 
 ## Known Issues:
 There is currently a workaround to fix an issue that numba has.
@@ -51,11 +54,13 @@ To solve any issue install openmp, then:
 3. add unit tests for neutral dimers, charged dimers, and trimers 
 
 ## References:
-1. K. J. Daas, D.P. Kooi, N.M. Peters, E. Fabiano, F. Della Sala, P. Gori-Giorgi, S. Vuckovic, Regularized and scaled Opposite-spin Functionals in Møller-Plesset Adiabatic Connection: Higher Accuracy at a Lower Cost, Arxiv 2023 https://doi.org/10.48550/arXiv.2307.02715
+1. K. J. Daas, D.P. Kooi, N.M. Peters, E. Fabiano, F. Della Sala, P. Gori-Giorgi, S. Vuckovic, Regularized and scaled Opposite-spin Functionals in Møller-Plesset Adiabatic Connection: Higher Accuracy at a Lower Cost, J. Phys. Chem. Lett. 14 (38), 8448-8459 (2023).
+
+2. E. Palos, H. Zhao, K. J. Daas, E. Fabiano, S. Vuckovic, Møller-Plesset Adiabatic Connection Theory for Diverse Noncovalent Interactions, J. Phys. Chem. Lett. 16 (31) 7898-7908 (2025).
 
 ## License
 MIT License
-Copyright (c) 2024 Etienne Palos, Kimberly J. Daas, Derk P. Kooi, Stefan Vuckovic
+Copyright (c) 2026 Etienne Palos, Kimberly J. Daas, Derk P. Kooi, Stefan Vuckovic
 Copyright (c) 2023 Kimberly J. Daas, Derk P. Kooi, Stefan Vuckovic
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

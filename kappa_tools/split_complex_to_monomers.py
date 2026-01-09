@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
 XYZ SPLITTER
 A simple "helper script" for MPAC interaction energy calculations
@@ -23,13 +24,10 @@ NOTE:
     - The script assumes that the atom count for each monomer is provided in the 'atlist' variable.
     - The monomer labels (e.g., A, B, C) are defined in the 'monomer_labels' variable.
 
-Author: Etienne Palos
+Author: @etiennepalos
 '''
 
-# Required libs 
-import sys
-import os
-import shutil
+import sys, os, shutil
 
 if len(sys.argv) != 2:
     print("Usage: python3 "  + sys.argv[0] + " cluster.xyz")
@@ -39,12 +37,12 @@ fxyz = sys.argv[1]
 atlist = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]  # N-atoms per monomer (example given is e.g. water decamer)
 monomer_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
-# For N-monomer complex
+# for N-monomer complex
 def create_complex_directory(xyz):
     os.makedirs("COMPLEX", exist_ok=True)  
     shutil.copy(xyz, "COMPLEX/system.xyz")  
 
-# Function to write monomers into directories
+# function to write monomers into directories
 def write_monomers(xyz, atlist, labels):
     with open(xyz, 'r') as f:
         nat = f.readline().split()[0]  
@@ -58,7 +56,7 @@ def write_monomers(xyz, atlist, labels):
                 m.append(line)
             mons.append(m)
 
-    # Create directories for monomers 
+    # create directories for monomers 
     for i in range(len(atlist)):
         dir_name = labels[i]  
         os.makedirs(dir_name, exist_ok=True) 
@@ -76,4 +74,3 @@ write_monomers(fxyz, atlist, monomer_labels)
 
 print("\nXYZ preparation complete. The full cluster is saved in the 'COMPLEX' directory as 'system.xyz'.")
 print("Monomer files are organized in respective directories.\n")
-
