@@ -1,62 +1,69 @@
-# kappa-SPL2: Running the new MPAC functionals using different MP2 implementations
+## kappa-SPL2  
+**Running the new MPAC functionals using different MP2 implementations**
 
-Depends on the following packages:
-- [pyscf]
-- [numba]
-- [numpy]
-- [argparse]
-- [openmp]
-- [json]
+kappa-SPL2 provides an implementation of the κ-SPL2 and MPAC family of functionals built on top of MP2, enabling systematic benchmarking and method development for noncovalent interactions.
 
-## Requirements:
-* Python 3.9 or newer (earlier versions might still work)
-* numba 0.49.0 (earlier versions might still work)
+---
+
+## Dependencies
+
+### Python dependencies
+[![PySCF](https://img.shields.io/badge/PySCF-quantum-blue)](https://pyscf.org)
+[![NumPy](https://img.shields.io/badge/NumPy-array-brightgreen)](https://numpy.org)
+[![Numba](https://img.shields.io/badge/Numba-JIT-orange)](https://numba.pydata.org)
+[![argparse](https://img.shields.io/badge/argparse-stdlib-lightgrey)](https://docs.python.org/3/library/argparse.html)
+
+### System requirements
+- **OpenMP** — shared-memory parallelism (OpenMP-enabled compiler/runtime required)
+- **JSON** — structured input/output (Python standard library)
+
+---
+
+## Notes
+- Python ≥ 3.9 is recommended.
+- Numpy ≥ 2.0 is not currently supported.
+- Performance depends on OpenMP support and the availability of JIT compilation via Numba.
 
 ## To run the calculations correctly one needs to have the following directory structure in the working directory:
-* A/m.xyz
-* B/m.xyz
+* `A/m.xyz`
+* `B/m.xyz`
 * ...
-* COMPLEX/m.xyz
+* `COMPLEX/m.xyz`
 for fragment A, fragment B and the full complex COMPLEX.
 
 ## Input parameters to give on the command line:
-1. --charge: the charge of the molecule (int) (default=0)
-2. --spin: the spin of the molecule (int) (default=0)
-3. --basis: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf) 
-4. --func: the functional that you want to run (str) (default="coskos-SPL2)
+1. `--charge`: the charge of the molecule (int) (default=0)
+2. `--spin`: the spin of the molecule (int) (default=0)
+3. `--basis`: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf) 
+4. `--func`: the functional that you want to run (str) (default="coskos-SPL2)
 For func use mp2, spl2, f1, f1ab, or mpac25 as base and add a prefix as coskos-, cos-, ksskos-, k- or no prefix.
-5. --cp: enable Boys-Bernardi counterpoise correction for BSSE (flag) (default=False)
+5. `--cp`: enable Boys-Bernardi counterpoise correction for BSSE (flag) (default=False)
 
 ## Other Support:
-run_all/
-run_all.py can be found in the run_all directory, which runs all the 20 functionals and outputs a .json file.
-run_all_generalized.py works for clusters of arbitrary size (N-fragment)
+`run_all/`
+`run_all.py` can be found in the run_all directory, which runs all the 20 functionals and outputs a .json file.
+`run_all_generalized.py` works for clusters of arbitrary size (N-fragment)
 
-kappa_tools/
-split_complex_to_monomers.py is in the kappa_tools directory, and it splits N-fragment XYZ file into the directory structure specified above.
-split_complex_to_mbe.py generates all possible 1-mers, 2-mers, ..., n-mers for meny-body expansion (MBE) calculations.
-
-### Input parameters of this are:
-1. --charge: the charge of the molecule (int) (default=0)
-2. --charges: list of fragment charges, them complex (int) (default=0)
-3. --spin: the spin of the molecule (int) (default=0)
-4. --basis: the basisset (str) (default="aug-cc-pvqz") (only supports basissets implemented in pyscf)
-5. --cp: enable Boys-Bernardi counterpoise correction for BSSE (flag) (default=False)
+`kappa_tools/`
+`split_complex_to_monomers.py` is in the kappa_tools directory, and it splits N-fragment XYZ file into the directory structure specified above.
+`split_complex_to_mbe.py` generates all possible 1-mers, 2-mers, ..., n-mers for meny-body expansion (MBE) calculations.
 
 ## Known Issues:
 There is currently a workaround to fix an issue that numba has.
 To solve any issue install openmp, then:
-- conda install numba cffi -c drtodd13 -c conda-forge --override-channel
+`- conda install numba cffi -c drtodd13 -c conda-forge --override-channel`
 
 ## Future implementations:
-1. add optimization scheme on S22 to allow all combinations of \kappa's, spin scaling and mpac functionals.
+1. add optimization scheme (e.g. S22) to allow all combinations of \kappa's, spin scaling and mpac functionals.
 2. add many-body expansion scheme, calculating interaction energies of all possible dimers, trimers, tetramers... for all mpac functionals.
 3. add unit tests for neutral dimers, charged dimers, and trimers 
 
 ## References:
-1. K. J. Daas, D.P. Kooi, N.M. Peters, E. Fabiano, F. Della Sala, P. Gori-Giorgi, S. Vuckovic, Regularized and scaled Opposite-spin Functionals in Møller-Plesset Adiabatic Connection: Higher Accuracy at a Lower Cost, J. Phys. Chem. Lett. 14 (38), 8448-8459 (2023).
+1. K. J. Daas, D.P. Kooi, N.M. Peters, E. Fabiano, F. Della Sala, P. Gori-Giorgi, S. Vuckovic, Regularized and scaled Opposite-spin Functionals in Møller-Plesset Adiabatic Connection: Higher Accuracy at a Lower Cost, *J. Phys. Chem. Lett.* **14** (38), 8448-8459 (2023). [![DOI](https://img.shields.io/badge/DOI-10.1021/acs.jpclett.3c01832-blue)](https://doi.org/10.1021/acs.jpclett.3c01832)
 
-2. E. Palos, H. Zhao, K. J. Daas, E. Fabiano, S. Vuckovic, Møller-Plesset Adiabatic Connection Theory for Diverse Noncovalent Interactions, J. Phys. Chem. Lett. 16 (31) 7898-7908 (2025).
+
+2. E. Palos, H. Zhao, K. J. Daas, E. Fabiano, S. Vuckovic, Møller-Plesset Adiabatic Connection Theory for Diverse Noncovalent Interactions, *J. Phys. Chem. Lett.* **16** (31) 7898-7908 (2025). [![DOI](https://img.shields.io/badge/DOI-10.1021/acs.jpclett.5c01304-blue)](https://doi.org/10.1021/acs.jpclett.5c01304)
+
 
 ## License
 MIT License
