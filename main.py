@@ -20,9 +20,17 @@ if __name__ == "__main__":
     parser.add_argument("--basis", type=str, default="aug-cc-pvqz",help="the basisset used in the calculations")
     parser.add_argument("--func",type=str,default="coskos-SPL2", help="the MP AC functional used including the prefix")
     parser.add_argument("--cp", action="store_true", help="perform counterpoise (Boys-Bernardi) correction for BSSE")
+    parser.add_argument("--use-df", action="store_true", help="use density fitting (DF/RI) approximation for MP2")
+    parser.add_argument("--auxbasis", type=str, default="", help="auxiliary basis for density fitting (auto-selected if not specified)")
 
 args = parser.parse_args()
 func = args.func.lower()
+use_df = args.use_df
+
+if use_df:
+    print(f"Density Fitting MP2 (DF-MP2) initialized (auxiliary basis: {args.auxbasis if args.auxbasis else 'auto'})")
+else:
+    print("Canonical MP2 initialized")
 #obtaining the attributes of the inputted functional:
 if "kos" in func: #checking if it uses the \kappa regularizer
     kappa=True
@@ -105,7 +113,10 @@ for i in range(N_fragments + 1): #run over all fragments and complex
     os.chdir(datadir)
     ###runs HF
     py_run=run_pyscf(atom="m.xyz",charge=args.charge,spin=args.spin,basis=args.basis)
-    tab, eris = py_run.run_eris(chkfile_name=chkfile,chkfile_dir=datadir)
+    if use_df:
+        tab, eris = py_run.run_eris_df(chkfile_name=chkfile, chkfile_dir=datadir, auxbasis=args.auxbasis)
+    else:
+        tab, eris = py_run.run_eris(chkfile_name=chkfile,chkfile_dir=datadir)
     #this prints and extracts all of the ingredients except MP2
     np.savetxt("tab.csv", tab, delimiter=",", fmt='%s')
     ehf.append(tab[0])
@@ -126,11 +137,17 @@ for i in range(N_fragments + 1): #run over all fragments and complex
         k1s=np.array(k1ss,dtype=float)
         k2s=np.array(k2ss,dtype=float)
         k_os=kapcoslist[0]
-        mp2OS = MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral
+        if use_df:
+            mp2OS = DF_MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral (DF)
+        else:
+            mp2OS = MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral
         np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
         #Spin scaled \kappa's
         if cos==False:
-            mp2SS = MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral
+            if use_df:
+                mp2SS = DF_MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral (DF)
+            else:
+                mp2SS = MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral
             np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
             k_ss=kapcoslist[1] 
             E_c_kmp2_tot= mp2SS[k1ss.index(k_ss)] + mp2OS[k2ss.index(k_os)] #take only the value that corresponds to the optimal k_ss and k_os
@@ -141,7 +158,10 @@ for i in range(N_fragments + 1): #run over all fragments and complex
             E_c_mp2.append(E_c_kmp2_cos)
     else: #run MP2 without \kappa
         ###Runs E_c^MP2(ss) and E_c^MP2(os)
-        e_mp2_split = MP2_energy_split(*eris) #cal
+        if use_df:
+            e_mp2_split = DF_MP2_energy_split(*eris) #calculate MP2 with density fitting
+        else:
+            e_mp2_split = MP2_energy_split(*eris) #cal
         np.savetxt("mp2.csv", e_mp2_split, delimiter=",", fmt='%s')
         if cos==False: #run regular MP2
             E_c_mp2_tot= sum(e_mp2_split)
@@ -172,7 +192,10 @@ if args.cp:
         # Run calculation with ghost atoms
         py_run = run_pyscf(atom="m.xyz", charge=args.charge, spin=args.spin, 
                           basis=args.basis, ghost_atoms=ghost_atoms_str)
-        tab_cp, eris_cp = py_run.run_eris(chkfile_name=chkfile, chkfile_dir=datadir)
+        if use_df:
+            tab_cp, eris_cp = py_run.run_eris_df(chkfile_name=chkfile, chkfile_dir=datadir, auxbasis=args.auxbasis)
+        else:
+            tab_cp, eris_cp = py_run.run_eris(chkfile_name=chkfile, chkfile_dir=datadir)
         
         np.savetxt("tab_cp.csv", tab_cp, delimiter=",", fmt='%s')
         ehf_cp.append(tab_cp[0])
@@ -183,11 +206,17 @@ if args.cp:
             k1s=np.array(k1ss,dtype=float)
             k2s=np.array(k2ss,dtype=float)
             k_os=kapcoslist[0]
-            mp2OS_cp = MP2_energy_kappa_p_OS_parallel(*eris_cp, k2s, 1)
+            if use_df:
+                mp2OS_cp = DF_MP2_energy_kappa_p_OS_parallel(*eris_cp, k2s, 1)
+            else:
+                mp2OS_cp = MP2_energy_kappa_p_OS_parallel(*eris_cp, k2s, 1)
             np.savetxt("os_cp.csv", mp2OS_cp, delimiter=",", fmt='%s')
             
             if cos==False:
-                mp2SS_cp = MP2_energy_kappa_p_SS_parallel(*eris_cp, k1s, 1)
+                if use_df:
+                    mp2SS_cp = DF_MP2_energy_kappa_p_SS_parallel(*eris_cp, k1s, 1)
+                else:
+                    mp2SS_cp = MP2_energy_kappa_p_SS_parallel(*eris_cp, k1s, 1)
                 np.savetxt("ss_cp.csv", mp2SS_cp, delimiter=",", fmt='%s')
                 k_ss=kapcoslist[1]
                 E_c_kmp2_tot_cp = mp2SS_cp[k1ss.index(k_ss)] + mp2OS_cp[k2ss.index(k_os)]
@@ -197,7 +226,10 @@ if args.cp:
                 E_c_kmp2_cos_cp = c_os*mp2OS_cp[k2ss.index(k_os)]
                 E_c_mp2_cp.append(E_c_kmp2_cos_cp)
         else:
-            e_mp2_split_cp = MP2_energy_split(*eris_cp)
+            if use_df:
+                e_mp2_split_cp = DF_MP2_energy_split(*eris_cp)
+            else:
+                e_mp2_split_cp = MP2_energy_split(*eris_cp)
             np.savetxt("mp2_cp.csv", e_mp2_split_cp, delimiter=",", fmt='%s')
             
             if cos==False:

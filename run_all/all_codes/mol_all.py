@@ -184,3 +184,86 @@ class run_pyscf():
         self.eri = ao2mo.outcore.general_iofree(self.mol, (mo_coeff[:,:self.nocc],mo_coeff[:,self.nocc:], mo_coeff[:,:self.nocc],mo_coeff[:,self.nocc:]),compact=False).reshape(self.nocc,nvirt,self.nocc,nvirt)
         eris=[self.nocc,self.e,self.eri] 
         return tab, eris
+
+    def run_eris_df(self, chkfile_name: str = "", chkfile_dir: str = "", auxbasis: str = ""):
+        """Calculates the 3-index density fitting integrals and the LDA and GEA integrals.
+
+        Args:
+            chkfile_name (str, optional): the name of the chkfile that either will be used to store the calculation or already contains a finished RHF SCF calculation. Defaults to "".
+            chkfile_dir (str, optional): the directory that contains said chkfile. Defaults to "".
+            auxbasis (str, optional): the auxiliary basis set for density fitting. Auto-selected if empty. Defaults to "".
+
+        Returns:
+            list,list: outputs a list containing the HF energy, Hartree energy, Exchange energy, LDA integral W_{c,\\infty}, GEA integral W_{c,\\infty}, LDA integral W_{1/2} and GEA integral W_{1/2} and a list containing the number of occupied orbitals, HF orbital energies and the 3-index DF integrals B_ia.
+        """
+        self.chkfile_name = chkfile_name
+        self.chkfile_dir = chkfile_dir
+        dm, ehf, e, mo_coeff, coords, weights, Uh, Ex = self.run_mol(self.chkfile_name, self.chkfile_dir)
+        
+        # for CP calculations with ghost atoms, skip grid-based DFT integrals
+        if self.has_ghost_atoms:
+            # dummy values for grid integrals (not used in CP energy calculations)
+            self.rho_4_3 = 0.0
+            self.grad_square_over_rho_4_3 = 0.0
+            self.rho_3_2 = 0.0
+            self.grad_square_over_rho_7_6 = 0.0
+        else:
+            # normal calculation with grid integrals
+            aovals = dft.numint.eval_ao(self.mol, coords, deriv=1)
+            rho = dft.numint.eval_rho(self.mol, aovals, dm, xctype='GGA')
+            self.rho_4_3 = np.sum(weights*rho[0]**(4/3))
+            grad_square = np.sum(np.square(rho[1:4]), axis=0)
+            non_zero = np.where(rho[0] > self.rho_trunc)
+            self.grad_square_over_rho_4_3 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(4/3)))
+            self.rho_3_2 = np.sum(weights*rho[0]**(3/2))
+            self.grad_square_over_rho_7_6 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(7/6)))
+        
+        self.Ex = Ex
+        self.Uh = Uh
+        tab = [self.ehf, self.Uh, self.Ex, self.rho_4_3, self.grad_square_over_rho_4_3, self.rho_3_2, self.grad_square_over_rho_7_6]
+        self.e = e
+        norb = self.e.shape[0]
+        nvirt = norb - self.nocc
+        
+        # Build 3-index DF integrals using PySCF's density fitting
+        from pyscf import df
+        from pyscf.ao2mo import _ao2mo
+        
+        # Auto-select auxiliary basis if needed
+        if not auxbasis:
+            if 'cc-pv' in self.basis.lower():
+                auxbasis = self.basis + '-ri'
+            elif 'def2' in self.basis.lower():
+                auxbasis = self.basis + '/jkfit'
+            else:
+                auxbasis = 'weigend'
+        
+        # Create DF object
+        with_df = df.DF(self.mol, auxbasis=auxbasis)
+        with_df.max_memory = self.mol.max_memory
+        
+        mo_occ = mo_coeff[:, :self.nocc]
+        mo_vir = mo_coeff[:, self.nocc:]
+        nao = self.mol.nao_nr()
+        
+        # Concatenate mo_occ and mo_vir like PySCF does
+        mo = np.asarray(np.hstack((mo_occ, mo_vir)), order='F')
+        ijslice = (0, self.nocc, self.nocc, self.nocc + nvirt)
+        
+        # Get 3-index integrals (L|ia) where L is auxiliary index
+        # Loop over auxiliary basis and transform
+        ovL_list = []
+        for Lpq in with_df.loop():
+            # Lpq has shape (naux_block, nao*(nao+1)/2)
+            # Transform to MO basis for occupied-virtual block
+            Lov = _ao2mo.nr_e2(Lpq, mo, ijslice, aosym='s2', out=None)
+            ovL_list.append(Lov.T)  # Transpose to get (nocc*nvirt, naux_block)
+        
+        # Concatenate all auxiliary blocks
+        ovL = np.hstack(ovL_list)  # Shape: (nocc*nvirt, naux)
+        
+        # Reshape to (nocc, nvirt, naux)
+        B_ia = ovL.reshape(self.nocc, nvirt, -1)
+        
+        eris = [self.nocc, self.e, B_ia]
+        return tab, eris
