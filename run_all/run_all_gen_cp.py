@@ -31,8 +31,13 @@ if __name__ == "__main__":
     parser.add_argument("--spin", type=int, default=0, help="the spin of the system")
     parser.add_argument("--basis", type=str, default="def2-qzvppd",help="the basisset used in the calculations")
     parser.add_argument("--cp", action="store_true", help="perform counterpoise (Boys-Bernardi) correction for BSSE")
+    parser.add_argument("--use-df", action="store_true", help="use density fitting (DF-MP2) for faster integral evaluation")
+    parser.add_argument("--auxbasis", type=str, default=None, help="auxiliary basis set for DF-MP2 (auto-selected if not specified)")
 
     args = parser.parse_args()
+    
+    use_df = args.use_df
+    auxbasis = args.auxbasis
 
     # See kappa_tools for helper scripts to prepare your workind dir. 
     # NOTE: For now, order is assumed to be fragment1, fragment2, ..., fragmentN, complex.
@@ -78,7 +83,11 @@ for i in range(len(mols)): #run over the fragements and complex
     os.chdir(datadir)
     ### Runs Hartree-Fock calculation
     py_run=run_pyscf(atom="m.xyz",charge=charges[i],spin=args.spin,basis=args.basis)
-    tab, eris = py_run.run_eris(chkfile_name=chkfile,chkfile_dir=datadir)
+    if use_df:
+        tab, B_ia = py_run.run_eris_df(chkfile_name=chkfile, chkfile_dir=datadir, auxbasis=auxbasis)
+        eris = (py_run.nocc, py_run.nvirt, py_run.e, B_ia)
+    else:
+        tab, eris = py_run.run_eris(chkfile_name=chkfile,chkfile_dir=datadir)
     # This prints and extracts all of the ingredients except MP2 into tab.csv
     np.savetxt("tab.csv", tab, delimiter=",", fmt='%s')
     ehf.append(tab[0])
@@ -96,15 +105,26 @@ for i in range(len(mols)): #run over the fragements and complex
     np.savetxt("k2.csv", k2ss, delimiter=",", fmt='%s')
     k1s=np.array(k1ss,dtype=float)
     k2s=np.array(k2ss,dtype=float)
-    mp2OS = MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral with kappa
-    E_c_OS_k.append(mp2OS)
-    np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
-    # Spin scaled \kappa's
-    mp2SS = MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral with kappa
-    E_c_SS_k.append(mp2SS)
-    np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
-    e_mp2_split = MP2_energy_split(*eris,) #calculates the same an opposite mp2 integrals
-    np.savetxt("mp2.csv", e_mp2_split, delimiter=",", fmt='%s')
+    if use_df:
+        mp2OS = DF_MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral with kappa
+        E_c_OS_k.append(mp2OS)
+        np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
+        # Spin scaled \kappa's
+        mp2SS = DF_MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral with kappa
+        E_c_SS_k.append(mp2SS)
+        np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
+        e_mp2_split = DF_MP2_energy_split(*eris,) #calculates the same an opposite mp2 integrals
+        np.savetxt("mp2.csv", e_mp2_split, delimiter=",", fmt='%s')
+    else:
+        mp2OS = MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral with kappa
+        E_c_OS_k.append(mp2OS)
+        np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
+        # Spin scaled \kappa's
+        mp2SS = MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral with kappa
+        E_c_SS_k.append(mp2SS)
+        np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
+        e_mp2_split = MP2_energy_split(*eris,) #calculates the same an opposite mp2 integrals
+        np.savetxt("mp2.csv", e_mp2_split, delimiter=",", fmt='%s')
     E_c_SS.append(e_mp2_split[0])
     E_c_OS.append(e_mp2_split[1])
     E_c_mp2tot.append(sum(e_mp2_split))
@@ -131,14 +151,21 @@ if args.cp:
         # Run calculation with ghost atoms
         py_run = run_pyscf(atom="m.xyz", charge=charges[i], spin=args.spin, 
                           basis=args.basis, ghost_atoms=ghost_atoms_str)
-        tab_cp, eris_cp = py_run.run_eris(chkfile_name=chkfile, chkfile_dir=datadir)
+        if use_df:
+            tab_cp, B_ia_cp = py_run.run_eris_df(chkfile_name=chkfile, chkfile_dir=datadir, auxbasis=auxbasis)
+            eris_cp = (py_run.nocc, py_run.nvirt, py_run.e, B_ia_cp)
+        else:
+            tab_cp, eris_cp = py_run.run_eris(chkfile_name=chkfile, chkfile_dir=datadir)
         
         np.savetxt("tab_cp.csv", tab_cp, delimiter=",", fmt='%s')
         ehf_cp.append(tab_cp[0])
         Ex_cp.append(tab_cp[2])
         
         # Calculate MP2 for CP
-        e_mp2_split_cp = MP2_energy_split(*eris_cp)
+        if use_df:
+            e_mp2_split_cp = DF_MP2_energy_split(*eris_cp)
+        else:
+            e_mp2_split_cp = MP2_energy_split(*eris_cp)
         np.savetxt("mp2_cp.csv", e_mp2_split_cp, delimiter=",", fmt='%s')
         E_c_mp2tot_cp.append(sum(e_mp2_split_cp))
         
