@@ -25,7 +25,7 @@ params={
     (False,False,False,"spl2"): [[0.117,10.68,1.1472,-0.7397], "SPL2"],
     (False,False,False,"f1"): [[0.294,0.934,1,1], "F1"],
     (False,False,False,"f1ab"): [[2.151, 0.413,3.837,-6.620], "F1ab"],
-    (False,False,False,"mpac25"): [[0.294,0.934,1,1], "MPAC25"],
+    (False,False,False,"mpac25"): [[1.1,0.6,1,1], "MPAC25"],
     (False,False,False,"mp2"): [[], "MP2"],
     (False,True,False,"spl2"): [[0.527, 58.850,1.278,-1.059,1.8], "cos-SPL2"],
     (False,True,False,"f1"): [[2.206,0.7068,1,1,2.2], "cos-F1"],
