@@ -42,11 +42,7 @@ def get_ghost_atoms_for_fragment(fragment_dirs, fragment_index, base_dir="."):
                 coords = read_xyz_file(xyz_path)
                 ghost_coords.extend(coords)
             else:
-                # Try system.xyz as fallback
-                xyz_path = os.path.join(base_dir, frag_dir, "system.xyz")
-                if os.path.exists(xyz_path):
-                    coords = read_xyz_file(xyz_path)
-                    ghost_coords.extend(coords)
+                print(f"Warning: {xyz_path} not found for ghost atoms.")
     
     return '\n'.join(ghost_coords)
 
@@ -69,12 +65,12 @@ def get_all_ghost_atoms(fragment_dirs, exclude_index=None, base_dir="."):
             continue
             
         xyz_path = os.path.join(base_dir, frag_dir, "m.xyz")
-        if not os.path.exists(xyz_path):
-            xyz_path = os.path.join(base_dir, frag_dir, "system.xyz")
             
         if os.path.exists(xyz_path):
             coords = read_xyz_file(xyz_path)
             ghost_coords.extend(coords)
+        else:
+            print(f"Warning: {xyz_path} not found for ghost atoms.")
     
     return '\n'.join(ghost_coords)
 

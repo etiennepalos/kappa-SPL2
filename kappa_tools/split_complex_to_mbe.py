@@ -53,7 +53,7 @@ def write_fragment(indices, monomers, labels, outdir, charges):
     os.makedirs(frag_dir, exist_ok=True)
 
     # xyz
-    xyz_path = os.path.join(frag_dir, "system.xyz")
+    xyz_path = os.path.join(frag_dir, "m.xyz")
     with open(xyz_path, 'w') as f:
         total_atoms = sum(len(monomers[i]) for i in indices)
         f.write(f"{total_atoms}\n")
@@ -69,7 +69,7 @@ def write_fragment(indices, monomers, labels, outdir, charges):
 
 def make_complex(cluster_xyz, charges):
     os.makedirs("COMPLEX", exist_ok=True)
-    shutil.copy(cluster_xyz, "COMPLEX/system.xyz")
+    shutil.copy(cluster_xyz, "COMPLEX/m.xyz")
     with open("COMPLEX/charge.txt",'w') as f:
         f.write(str(sum(charges)))
 

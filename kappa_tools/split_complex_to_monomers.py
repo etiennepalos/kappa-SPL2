@@ -40,7 +40,7 @@ monomer_labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 # for N-monomer complex
 def create_complex_directory(xyz):
     os.makedirs("COMPLEX", exist_ok=True)  
-    shutil.copy(xyz, "COMPLEX/system.xyz")  
+    shutil.copy(xyz, "COMPLEX/m.xyz")  
 
 # function to write monomers into directories
 def write_monomers(xyz, atlist, labels):
@@ -61,7 +61,7 @@ def write_monomers(xyz, atlist, labels):
         dir_name = labels[i]  
         os.makedirs(dir_name, exist_ok=True) 
         
-        fname = f"{dir_name}/system.xyz" 
+        fname = f"{dir_name}/m.xyz" 
         with open(fname, 'w') as ff:
             inat = atlist[i]
             ff.write(str(inat) + "\n")
@@ -72,5 +72,5 @@ def write_monomers(xyz, atlist, labels):
 create_complex_directory(fxyz)
 write_monomers(fxyz, atlist, monomer_labels)
 
-print("\nXYZ preparation complete. The full cluster is saved in the 'COMPLEX' directory as 'system.xyz'.")
+print("\nXYZ preparation complete. The full cluster is saved in the 'COMPLEX' directory as 'm.xyz'.")
 print("Monomer files are organized in respective directories.\n")
