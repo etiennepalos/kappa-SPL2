@@ -5,9 +5,7 @@ E_int(N) = E_N - sum_i^N E_i  (e.g., dimer, trimer, ..., decamer)
 supports different charges for different fragments
 
 Contributors:
-Etienne Palos (from v2.0)
-K.J. Daas
-D.P. Kooi
+Etienne Palos
 S. Vuckovic 
 """
 
@@ -69,6 +67,11 @@ E_c_mp2tot=[]
 if args.cp:
     Ex_cp=[]
     ehf_cp=[]
+    rho_4_3_cp=[]
+    gea_4_3_cp=[]
+    E_c_SS_k_cp=[]
+    E_c_OS_k_cp=[]
+    E_c_OS_cp=[]
     E_c_mp2tot_cp=[]
     print("Counterpoise correction ENABLED")
 else:
@@ -132,7 +135,7 @@ for i in range(len(mols)): #run over the fragements and complex
 
 # Counterpoise correction: calculate fragments in full basis
 if args.cp:
-    print("\n=== Running Counterpoise Correction for N-fragment system ===")
+    print("\n Counterpoise Correction for N-fragment system")
     fragment_dirs = mols[:-1]  # All fragments, excluding complex
     num_fragments = len(fragment_dirs)
     
@@ -160,23 +163,50 @@ if args.cp:
         np.savetxt("tab_cp.csv", tab_cp, delimiter=",", fmt='%s')
         ehf_cp.append(tab_cp[0])
         Ex_cp.append(tab_cp[2])
+        rho_4_3_cp.append(tab_cp[3])
+        gea_4_3_cp.append(tab_cp[4])
         
         # Calculate MP2 for CP
         if use_df:
-            e_mp2_split_cp = DF_MP2_energy_split(*eris_cp)
+            mp2OS_cp = DF_MP2_energy_kappa_p_OS_parallel(*eris_cp,k2s, 1) #calculate the opposite spin integral with kappa
+            E_c_OS_k_cp.append(mp2OS_cp)
+            mp2SS_cp = DF_MP2_energy_kappa_p_SS_parallel(*eris_cp,k1s, 1) #calculate the same spin integral with kappa
+            E_c_SS_k_cp.append(mp2SS_cp)
+            e_mp2_split_cp = DF_MP2_energy_split(*eris_cp,) #calculates the same an opposite mp2 integrals
         else:
-            e_mp2_split_cp = MP2_energy_split(*eris_cp)
+            mp2OS_cp = MP2_energy_kappa_p_OS_parallel(*eris_cp,k2s, 1) #calculate the opposite spin integral with kappa
+            E_c_OS_k_cp.append(mp2OS_cp)
+            mp2SS_cp = MP2_energy_kappa_p_SS_parallel(*eris_cp,k1s, 1) #calculate the same spin integral with kappa
+            E_c_SS_k_cp.append(mp2SS_cp)
+            e_mp2_split_cp = MP2_energy_split(*eris_cp,) #calculates the same an opposite mp2 integrals
+            
         np.savetxt("mp2_cp.csv", e_mp2_split_cp, delimiter=",", fmt='%s')
+        E_c_OS_cp.append(e_mp2_split_cp[1])
         E_c_mp2tot_cp.append(sum(e_mp2_split_cp))
         
         os.chdir(old_pwd)
     
+    # Append the uncorrected complex values to the CP lists so that index [-1] corresponds to the complex
+    ehf_cp.append(ehf[-1])
+    Ex_cp.append(Ex[-1])
+    rho_4_3_cp.append(rho_4_3[-1])
+    gea_4_3_cp.append(gea_4_3[-1])
+    E_c_OS_k_cp.append(E_c_OS_k[-1])
+    E_c_SS_k_cp.append(E_c_SS_k[-1])
+    E_c_OS_cp.append(E_c_OS[-1])
+    E_c_mp2tot_cp.append(E_c_mp2tot[-1])
+
     print("=== Counterpoise correction calculations complete ===\n")
 
 # Gets the arrays into the correct shape
 E_c_SS_k=np.array(E_c_SS_k).T
 E_c_OS_k=np.array(E_c_OS_k).T
 E_c_OS=np.array(E_c_OS)
+
+if args.cp:
+    E_c_SS_k_cp=np.array(E_c_SS_k_cp).T
+    E_c_OS_k_cp=np.array(E_c_OS_k_cp).T
+    E_c_OS_cp=np.array(E_c_OS_cp)
 
 # Initializing the MPAC functionals and calculating the HF energy difference
 form_frags=MPAC_functionals(sum(Ex[:-1]),sum(rho_4_3[:-1]),sum(gea_4_3[:-1]))
@@ -236,41 +266,41 @@ if args.cp:
     print("\n=== Counterpoise-Corrected Interaction Energies ===")
     
     # CP-corrected uses fragments calculated in full basis
-    form_frags_cp = MPAC_functionals(sum(Ex_cp), sum(rho_4_3[:-1]), sum(gea_4_3[:-1]))
-    ehfdiv_cp = ehf[-1] - sum(ehf_cp)  # Complex - sum(fragments@full_basis)
+    form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3_cp[:-1]), sum(gea_4_3_cp[:-1]))
+    ehfdiv_cp = ehf_cp[-1] - sum(ehf_cp[:-1])  # Complex - sum(fragments@full_basis)
     
     # Calculate CP-corrected energies for all functionals
     E_c_int_cp = []
     EMP2vals_cp = {
         "MP2": [E_c_mp2tot_cp]*5,
-        "k-MP2": [E_c_SS_k[5] + E_c_OS_k[5], E_c_SS_k[11] + E_c_OS_k[11], 
-                  E_c_SS_k[7] + E_c_OS_k[7], E_c_SS_k[9] + E_c_OS_k[9], E_c_SS_k[5] + E_c_OS_k[5]],
-        "ksskos-MP2": [E_c_SS_k[3] + E_c_OS_k[8], E_c_SS_k[5] + E_c_OS_k[11], 
-                       E_c_SS_k[4] + E_c_OS_k[8], E_c_SS_k[10] + E_c_OS_k[7], E_c_SS_k[3] + E_c_OS_k[8]],
-        "coskos-MP2": [2.1*E_c_OS_k[3], 2.1*E_c_OS_k[7], 2.3*E_c_OS_k[5], 2.5*E_c_OS_k[4], 2.1*E_c_OS_k[3]],
-        "cos-MP2": [1.7*E_c_OS, 1.8*E_c_OS, 2.2*E_c_OS, 2*E_c_OS, 1.7*E_c_OS]
+        "k-MP2": [E_c_SS_k_cp[5] + E_c_OS_k_cp[5], E_c_SS_k_cp[11] + E_c_OS_k_cp[11], 
+                  E_c_SS_k_cp[7] + E_c_OS_k_cp[7], E_c_SS_k_cp[9] + E_c_OS_k_cp[9], E_c_SS_k_cp[5] + E_c_OS_k_cp[5]],
+        "ksskos-MP2": [E_c_SS_k_cp[3] + E_c_OS_k_cp[8], E_c_SS_k_cp[5] + E_c_OS_k_cp[11], 
+                       E_c_SS_k_cp[4] + E_c_OS_k_cp[8], E_c_SS_k_cp[10] + E_c_OS_k_cp[7], E_c_SS_k_cp[3] + E_c_OS_k_cp[8]],
+        "coskos-MP2": [2.1*E_c_OS_k_cp[3], 2.1*E_c_OS_k_cp[7], 2.3*E_c_OS_k_cp[5], 2.5*E_c_OS_k_cp[4], 2.1*E_c_OS_k_cp[3]],
+        "cos-MP2": [1.7*E_c_OS_cp, 1.8*E_c_OS_cp, 2.2*E_c_OS_cp, 2*E_c_OS_cp, 1.7*E_c_OS_cp]
     }
     
     for name, emp2_cp in EMP2vals_cp.items():
         E_c_int_cp.append(
             form_com.mp2(params[name][0], emp2_cp[0][-1])
-            - form_frags_cp.mp2(params[name][0], sum([e_cp for e_cp in E_c_mp2tot_cp]))
+            - form_frags_cp.mp2(params[name][0], sum(emp2_cp[0][:-1]))
         )
         E_c_int_cp.append(
             form_com.spl2(params[name][1], emp2_cp[1][-1])
-            - form_frags_cp.spl2(params[name][1], sum([e_cp for e_cp in E_c_mp2tot_cp]))
+            - form_frags_cp.spl2(params[name][1], sum(emp2_cp[1][:-1]))
         )
         E_c_int_cp.append(
             form_com.f1(params[name][2], emp2_cp[2][-1])
-            - form_frags_cp.f1(params[name][2], sum([e_cp for e_cp in E_c_mp2tot_cp]))
+            - form_frags_cp.f1(params[name][2], sum(emp2_cp[2][:-1]))
         )
         E_c_int_cp.append(
             form_com.f1(params[name][3], emp2_cp[3][-1])
-            - form_frags_cp.f1(params[name][3], sum([e_cp for e_cp in E_c_mp2tot_cp]))
+            - form_frags_cp.f1(params[name][3], sum(emp2_cp[3][:-1]))
         )
         E_c_int_cp.append(
             form_com.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional
-            - form_frags_cp.f1(params[name][4], sum([e_cp for e_cp in E_c_mp2tot_cp]))
+            - form_frags_cp.f1(params[name][4], sum(emp2_cp[4][:-1]))
         )
     
     E_c_ints_cp = dict(zip(funcs, kcal*(ehfdiv_cp+np.array(E_c_int_cp))))
