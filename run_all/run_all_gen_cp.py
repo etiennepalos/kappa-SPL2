@@ -39,9 +39,9 @@ if __name__ == "__main__":
 
     # See kappa_tools for helper scripts to prepare your workind dir. 
     # NOTE: For now, order is assumed to be fragment1, fragment2, ..., fragmentN, complex.
-    mols=["A","B","C","ABC"] 
+    mols=["A","B","C","D","COMPLEX"] 
     #charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
-    charges = [1] + [0] * (len(mols) - 2) + [1]  # First and last have charge -1, others 0
+    charges = [0] + [0] * (len(mols) - 2) + [0]  # First and last have charge -1, others 0
     
     print("CHARGES DEFINED IN SCRIPT:", charges)     
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         raise ValueError("ERROR: Number of charges must match the number of systems: N+1.")
         raise ValueError("Charges expected as arguments in order of fragments 1,...,N, then complex.")
 
-mpacf=["spl2","f1", "f1ab", "mp2"]
+mpacf=["spl2","f1","f1ab", "mpac25","mp2"]
 
 # Initializing lists to store MPAC ingredients 
 Ex=[]
@@ -210,6 +210,9 @@ if args.cp:
     E_c_OS_cp=np.array(E_c_OS_cp)
 
 # initializing the MPAC functionals and calculating the HF energy difference
+if args.cp:
+    form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3_cp[:-1]), sum(gea_4_3_cp[:-1]))
+    form_com_cp=MPAC_functionals(Ex_cp[-1],rho_4_3_cp[-1],gea_4_3_cp[-1]) 
 form_frags=MPAC_functionals(sum(Ex[:-1]),sum(rho_4_3[:-1]),sum(gea_4_3[:-1]))
 form_com=MPAC_functionals(Ex[-1],rho_4_3[-1],gea_4_3[-1]) 
 
@@ -265,9 +268,10 @@ with open("Eint_kcalmol_all.json","w",encoding="utf-8") as f:
 # calculate and print CP-corrected interaction energies
 if args.cp:
     # CP-corrected uses fragments calculated in full basis
-    form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3_cp[:-1]), sum(gea_4_3_cp[:-1]))
-    ehfdiv_cp = ehf_cp[-1] - sum(ehf_cp[:-1])  # Complex - sum(fragments@full_basis)
     # Calculate CP-corrected energies for all functionals
+    form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3[:-1]), sum(gea_4_3[:-1]))
+    form_com_cp = MPAC_functionals(Ex_cp[-1], rho_4_3[-1], gea_4_3[-1])
+    ehfdiv_cp = ehf_cp[-1] - sum(ehf_cp[:-1])  # Complex - sum(fragments@full_basis)
     E_c_int_cp = []
     EMP2vals_cp = {
         "MP2": [E_c_mp2tot_cp]*5,
@@ -281,23 +285,23 @@ if args.cp:
     
     for name, emp2_cp in EMP2vals_cp.items():
         E_c_int_cp.append(
-            form_com.mp2(params[name][0], emp2_cp[0][-1])
+            form_com_cp.mp2(params[name][0], emp2_cp[0][-1])
             - form_frags_cp.mp2(params[name][0], sum(emp2_cp[0][:-1]))
         )
         E_c_int_cp.append(
-            form_com.spl2(params[name][1], emp2_cp[1][-1])
+            form_com_cp.spl2(params[name][1], emp2_cp[1][-1])
             - form_frags_cp.spl2(params[name][1], sum(emp2_cp[1][:-1]))
         )
         E_c_int_cp.append(
-            form_com.f1(params[name][2], emp2_cp[2][-1])
+            form_com_cp.f1(params[name][2], emp2_cp[2][-1])
             - form_frags_cp.f1(params[name][2], sum(emp2_cp[2][:-1]))
         )
         E_c_int_cp.append(
-            form_com.f1(params[name][3], emp2_cp[3][-1])
+            form_com_cp.f1(params[name][3], emp2_cp[3][-1])
             - form_frags_cp.f1(params[name][3], sum(emp2_cp[3][:-1]))
         )
         E_c_int_cp.append(
-            form_com.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional
+            form_com_cp.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional
             - form_frags_cp.f1(params[name][4], sum(emp2_cp[4][:-1]))
         )
     

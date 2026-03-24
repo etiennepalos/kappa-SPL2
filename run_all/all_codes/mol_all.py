@@ -48,7 +48,7 @@ class run_pyscf():
             atom_string = atom
             
         self.mol = gto.M(atom=atom_string,basis=basis,charge=charge)
-        self.mol.max_memory = 2000000
+        self.mol.max_memory = 32000 # 32 GB
         nel = sum(self.mol.nelec) #number of electrons
         self.nocc = nel//2  #number of occupied orbitals
     
