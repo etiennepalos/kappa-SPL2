@@ -40,15 +40,18 @@ if __name__ == "__main__":
     # See kappa_tools for helper scripts to prepare your workind dir. 
     # NOTE: For now, order is assumed to be fragment1, fragment2, ..., fragmentN, complex.
     mols=["A","B","C","ABC"] 
-    charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
+    #charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
+    charges = [1] + [0] * (len(mols) - 2) + [1]  # First and last have charge -1, others 0
+    
+    print("CHARGES DEFINED IN SCRIPT:", charges)     
 
     if len(charges) != len(mols):
         raise ValueError("ERROR: Number of charges must match the number of systems: N+1.")
         raise ValueError("Charges expected as arguments in order of fragments 1,...,N, then complex.")
 
-print("USER PROVIDED CHARGES:",charges)
-mpacf=["spl2","mp2"]
+mpacf=["spl2","f1", "f1ab", "mp2"]
 
+# Initializing lists to store MPAC ingredients 
 Ex=[]
 ehf=[]
 Uh=[]
@@ -79,19 +82,19 @@ else:
 
 for i in range(len(mols)): #run over the fragements and complex
     run_mol=mols[i]
-    #add here path to frag m.xyz file
+    # add here path to frag m.xyz file
     chkfile="chkfile_"+run_mol+".chk"
     old_pwd=os.getcwd()
     datadir=old_pwd+"/"+run_mol
     os.chdir(datadir)
-    ### Runs Hartree-Fock calculation
+    # Runs Hartree-Fock calculation
     py_run=run_pyscf(atom="m.xyz",charge=charges[i],spin=args.spin,basis=args.basis)
     if use_df:
         tab, B_ia = py_run.run_eris_df(chkfile_name=chkfile, chkfile_dir=datadir, auxbasis=auxbasis)
         eris = (py_run.nocc, py_run.nvirt, py_run.e, B_ia)
     else:
         tab, eris = py_run.run_eris(chkfile_name=chkfile,chkfile_dir=datadir)
-    # This prints and extracts all of the ingredients except MP2 into tab.csv
+    # print and extracts all of the ingredients except MP2 into tab.csv
     np.savetxt("tab.csv", tab, delimiter=",", fmt='%s')
     ehf.append(tab[0])
     Uh.append(tab[1])
@@ -100,8 +103,6 @@ for i in range(len(mols)): #run over the fragements and complex
     gea_4_3.append(tab[4])
     rho_3_2.append(tab[5])
     gea_7_6.append(tab[6])
-    # k1 is for same spin
-    # k2 is for the opposite spin
     k1ss = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7]
     k2ss = k1ss
     np.savetxt("k1.csv", k1ss, delimiter=",", fmt='%s')
@@ -112,7 +113,7 @@ for i in range(len(mols)): #run over the fragements and complex
         mp2OS = DF_MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral with kappa
         E_c_OS_k.append(mp2OS)
         np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
-        # Spin scaled \kappa's
+        # spin scaled \kappa's
         mp2SS = DF_MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral with kappa
         E_c_SS_k.append(mp2SS)
         np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
@@ -122,7 +123,7 @@ for i in range(len(mols)): #run over the fragements and complex
         mp2OS = MP2_energy_kappa_p_OS_parallel(*eris,k2s, 1) #calculate the opposite spin integral with kappa
         E_c_OS_k.append(mp2OS)
         np.savetxt("os.csv", mp2OS, delimiter=",", fmt='%s')
-        # Spin scaled \kappa's
+        # spin scaled \kappa's
         mp2SS = MP2_energy_kappa_p_SS_parallel(*eris,k1s, 1) #calculate the same spin integral with kappa
         E_c_SS_k.append(mp2SS)
         np.savetxt("ss.csv", mp2SS, delimiter=",", fmt='%s')
@@ -133,7 +134,7 @@ for i in range(len(mols)): #run over the fragements and complex
     E_c_mp2tot.append(sum(e_mp2_split))
     os.chdir(old_pwd)
 
-# Counterpoise correction: calculate fragments in full basis
+# counterpoise correction: calculate fragments in full basis
 if args.cp:
     print("\n Counterpoise Correction for N-fragment system")
     fragment_dirs = mols[:-1]  # All fragments, excluding complex
@@ -148,10 +149,10 @@ if args.cp:
         datadir = old_pwd + "/" + run_mol
         os.chdir(datadir)
         
-        # Get ghost atoms from all other fragments
+        # get ghost atoms from all other fragments
         ghost_atoms_str = get_ghost_atoms_for_fragment(fragment_dirs, i, base_dir=old_pwd)
         
-        # Run calculation with ghost atoms
+        # run calculation with ghost atoms
         py_run = run_pyscf(atom="m.xyz", charge=charges[i], spin=args.spin, 
                           basis=args.basis, ghost_atoms=ghost_atoms_str)
         if use_df:
@@ -166,7 +167,7 @@ if args.cp:
         rho_4_3_cp.append(tab_cp[3])
         gea_4_3_cp.append(tab_cp[4])
         
-        # Calculate MP2 for CP
+        # calculate MP2 for CP
         if use_df:
             mp2OS_cp = DF_MP2_energy_kappa_p_OS_parallel(*eris_cp,k2s, 1) #calculate the opposite spin integral with kappa
             E_c_OS_k_cp.append(mp2OS_cp)
@@ -186,7 +187,7 @@ if args.cp:
         
         os.chdir(old_pwd)
     
-    # Append the uncorrected complex values to the CP lists so that index [-1] corresponds to the complex
+    # append the uncorrected complex values to the CP lists so that index [-1] corresponds to the complex
     ehf_cp.append(ehf[-1])
     Ex_cp.append(Ex[-1])
     rho_4_3_cp.append(rho_4_3[-1])
@@ -198,7 +199,7 @@ if args.cp:
 
     print("=== Counterpoise correction calculations complete ===\n")
 
-# Gets the arrays into the correct shape
+# gets the arrays into the correct shape
 E_c_SS_k=np.array(E_c_SS_k).T
 E_c_OS_k=np.array(E_c_OS_k).T
 E_c_OS=np.array(E_c_OS)
@@ -208,7 +209,7 @@ if args.cp:
     E_c_OS_k_cp=np.array(E_c_OS_k_cp).T
     E_c_OS_cp=np.array(E_c_OS_cp)
 
-# Initializing the MPAC functionals and calculating the HF energy difference
+# initializing the MPAC functionals and calculating the HF energy difference
 form_frags=MPAC_functionals(sum(Ex[:-1]),sum(rho_4_3[:-1]),sum(gea_4_3[:-1]))
 form_com=MPAC_functionals(Ex[-1],rho_4_3[-1],gea_4_3[-1]) 
 
@@ -219,7 +220,7 @@ print("Hartree-Fock Eint_HF [kcal/mol] =", einthf_kcal)
 
 funcs=["MP2","SPL2","F1","F1ab","MPAC25","k-MP2","k-SPL2","k-F1","k-F1ab","k-MPAC25","ksskos-MP2","ksskos-SPL2","ksskos-F1","ksskos-F1ab","ksskos-MPAC25","coskos-MP2","coskos-SPL2","coskos-F1","coskos-F1ab","coskos-MPAC25","cos-MP2","cos-SPL2","cos-F1","cos-F1ab","cos-MPAC25"]
 
-# Storing all the EMP2 data
+# storing all the EMP2 data
 EMP2vals={
     "MP2": [E_c_mp2tot]*5,
     "k-MP2": [E_c_SS_k[5] + E_c_OS_k[5],E_c_SS_k[11] + E_c_OS_k[11],E_c_SS_k[7] + E_c_OS_k[7],E_c_SS_k[9] +E_c_OS_k[9],E_c_SS_k[5] + E_c_OS_k[5]],
@@ -228,7 +229,7 @@ EMP2vals={
     "cos-MP2": [1.7*E_c_OS,1.8*E_c_OS,2.2*E_c_OS,2*E_c_OS,1.7*E_c_OS]
 }
 
-# Calculation for N-fragment systems
+# calculation for N-fragment systems
 for name, emp2 in EMP2vals.items():
     # Compute the interaction energy for N-fragment complex
     # form_com stores energy for the N-fragment complex E(N)
@@ -255,20 +256,17 @@ for name, emp2 in EMP2vals.items():
     )
 
 
-# Print interaction energies in kcal/mol to json file
+# print interaction energies in kcal/mol to json file
 E_c_ints=dict(zip(funcs,kcal*(ehfdiv+np.array(E_c_int))))
 print(E_c_ints) #prints out the correct E_c_int
 with open("Eint_kcalmol_all.json","w",encoding="utf-8") as f:
     json.dump(E_c_ints,f)
 
-# Calculate and print CP-corrected interaction energies
+# calculate and print CP-corrected interaction energies
 if args.cp:
-    print("\n=== Counterpoise-Corrected Interaction Energies ===")
-    
     # CP-corrected uses fragments calculated in full basis
     form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3_cp[:-1]), sum(gea_4_3_cp[:-1]))
     ehfdiv_cp = ehf_cp[-1] - sum(ehf_cp[:-1])  # Complex - sum(fragments@full_basis)
-    
     # Calculate CP-corrected energies for all functionals
     E_c_int_cp = []
     EMP2vals_cp = {
@@ -309,12 +307,11 @@ if args.cp:
     with open("Eint_kcalmol_all_CP.json","w",encoding="utf-8") as f:
         json.dump(E_c_ints_cp, f)
     
-    # Calculate and save BSSE corrections
+    # calculate and save BSSE corrections
     bsse_corrections = {func: E_c_ints[func] - E_c_ints_cp[func] for func in funcs}
-    print("\n=== BSSE Corrections [kcal/mol] ===")
+    print("\n BSSE Corrections [kcal/mol] ")
     print(bsse_corrections)
     
     with open("BSSE_corrections_kcalmol.json","w",encoding="utf-8") as f:
         json.dump(bsse_corrections, f)
-
 
