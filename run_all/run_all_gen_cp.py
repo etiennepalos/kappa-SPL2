@@ -33,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--cp", action="store_true", help="perform counterpoise (Boys-Bernardi) correction for BSSE")
     parser.add_argument("--use-df", action="store_true", help="use density fitting (DF-MP2) for faster integral evaluation")
     parser.add_argument("--auxbasis", type=str, default=None, help="auxiliary basis set for DF-MP2 (auto-selected if not specified)")
+    parser.add_argument("--fragments", nargs='+', type=str, default=None, help="list of fragment names (e.g., A B C D). Auto-detected if not provided.")
 
     args = parser.parse_args()
     
@@ -41,15 +42,27 @@ if __name__ == "__main__":
 
     # See kappa_tools for helper scripts to prepare your workind dir. 
     # NOTE: For now, order is assumed to be fragment1, fragment2, ..., fragmentN, complex.
-    mols=["A","B","C","D","COMPLEX"] 
-    #charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
-    charges = [0] + [0] * (len(mols) - 2) + [0]  # First and last have charge -1, others 0
-    
-    print("CHARGES DEFINED IN SCRIPT:", charges)     
+    if args.fragments:
+        mols = args.fragments + ["COMPLEX"]
+    else:
+        # Auto-detect single-letter/frag directories if possible
+        detected = [d for d in os.listdir('.') if os.path.isdir(d) and (len(d) <= 2 or d.startswith('frag'))]
+        detected.sort()
+        if "COMPLEX" in os.listdir('.'):
+            mols = detected + ["COMPLEX"]
+        else:
+            mols = ["A", "B", "C", "D", "COMPLEX"] # Fallback
+
+    if args.charges:
+        charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
+    else:
+        charges = [0] * len(mols)  # Default all 0
+
+    from kappa_codes.output_utils import print_job_header, write_mpac_job_out
+    start_time = print_job_header(mols, args.basis, use_df, args.cp, charges)
 
     if len(charges) != len(mols):
-        raise ValueError("ERROR: Number of charges must match the number of systems: N+1.")
-        raise ValueError("Charges expected as arguments in order of fragments 1,...,N, then complex.")
+        raise ValueError(f"ERROR: Number of charges ({len(charges)}) must match the number of systems (Fragments + COMPLEX = {len(mols)}).")
 
 mpacf=["spl2","f1","f1ab", "mpac25","mp2"]
 
@@ -261,15 +274,12 @@ for name, emp2 in EMP2vals.items():
     )
 
 # print interaction energies in kcal/mol to json file
-E_c_ints=dict(zip(funcs,kcal*(ehfdiv+np.array(E_c_int))))
-print(E_c_ints) #prints out the correct E_c_int
-with open("Eint_kcalmol_all.json","w",encoding="utf-8") as f:
-    json.dump(E_c_ints,f)
+E_c_ints = dict(zip(funcs, kcal * (ehfdiv + np.array(E_c_int))))
+with open("Eint_kcalmol_all.json", "w", encoding="utf-8") as f:
+    json.dump(E_c_ints, f)
 
-# calculate and print CP-corrected interaction energies
 if args.cp:
     # CP-corrected uses fragments calculated in full basis
-    # Calculate CP-corrected energies for all functionals
     form_frags_cp = MPAC_functionals(sum(Ex_cp[:-1]), sum(rho_4_3[:-1]), sum(gea_4_3[:-1]))
     form_com_cp = MPAC_functionals(Ex_cp[-1], rho_4_3[-1], gea_4_3[-1])
     ehfdiv_cp = ehf_cp[-1] - sum(ehf_cp[:-1])  # Complex - sum(fragments@full_basis)
@@ -285,37 +295,30 @@ if args.cp:
     }
     
     for name, emp2_cp in EMP2vals_cp.items():
-        E_c_int_cp.append(
-            form_com_cp.mp2(params[name][0], emp2_cp[0][-1])
-            - form_frags_cp.mp2(params[name][0], sum(emp2_cp[0][:-1]))
-        )
-        E_c_int_cp.append(
-            form_com_cp.spl2(params[name][1], emp2_cp[1][-1])
-            - form_frags_cp.spl2(params[name][1], sum(emp2_cp[1][:-1]))
-        )
-        E_c_int_cp.append(
-            form_com_cp.f1(params[name][2], emp2_cp[2][-1])
-            - form_frags_cp.f1(params[name][2], sum(emp2_cp[2][:-1]))
-        )
-        E_c_int_cp.append(
-            form_com_cp.f1(params[name][3], emp2_cp[3][-1])
-            - form_frags_cp.f1(params[name][3], sum(emp2_cp[3][:-1]))
-        )
-        E_c_int_cp.append(
-            form_com_cp.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional form
-            - form_frags_cp.f1(params[name][4], sum(emp2_cp[4][:-1]))
-        )
+        E_c_int_cp.append(form_com_cp.mp2(params[name][0], emp2_cp[0][-1]) - form_frags_cp.mp2(params[name][0], sum(emp2_cp[0][:-1])))
+        E_c_int_cp.append(form_com_cp.spl2(params[name][1], emp2_cp[1][-1]) - form_frags_cp.spl2(params[name][1], sum(emp2_cp[1][:-1])))
+        E_c_int_cp.append(form_com_cp.f1(params[name][2], emp2_cp[2][-1]) - form_frags_cp.f1(params[name][2], sum(emp2_cp[2][:-1])))
+        E_c_int_cp.append(form_com_cp.f1(params[name][3], emp2_cp[3][-1]) - form_frags_cp.f1(params[name][3], sum(emp2_cp[3][:-1])))
+        E_c_int_cp.append(form_com_cp.f1(params[name][4], emp2_cp[4][-1]) - form_frags_cp.f1(params[name][4], sum(emp2_cp[4][:-1])))
     
     E_c_ints_cp = dict(zip(funcs, kcal*(ehfdiv_cp+np.array(E_c_int_cp))))
-    print(E_c_ints_cp)
-    
     with open("Eint_kcalmol_all_CP.json","w",encoding="utf-8") as f:
         json.dump(E_c_ints_cp, f)
     
-    # calculate and save BSSE corrections
     bsse_corrections = {func: E_c_ints[func] - E_c_ints_cp[func] for func in funcs}
-    print("\n BSSE Corrections [kcal/mol] ")
-    print(bsse_corrections)
-    
     with open("BSSE_corrections_kcalmol.json","w",encoding="utf-8") as f:
         json.dump(bsse_corrections, f)
+
+# ---------------------------------------------------------
+# Formatting the professional output file ("mpac_job.out")
+# ---------------------------------------------------------
+write_mpac_job_out(
+    funcs=funcs,
+    E_c_ints=E_c_ints,
+    einthf_kcal=einthf_kcal,
+    filename="mpac_job.out",
+    cp_enabled=args.cp,
+    E_c_ints_cp=E_c_ints_cp if args.cp else None,
+    bsse_corrections=bsse_corrections if args.cp else None,
+    ehfdiv_cp_kcal=ehfdiv_cp*kcal if args.cp else None
+)
