@@ -6,10 +6,12 @@ supports different charges for different fragments
 
 Contributors:
 Etienne Palos
+K.J. Daas
+D.P. Kooi
 S. Vuckovic 
 """
 
-#import required libs: pyscf, numpy and numba
+# import required libs: pyscf, numpy and numba
 import numpy as np
 import argparse
 import os
@@ -258,7 +260,6 @@ for name, emp2 in EMP2vals.items():
         - form_frags.f1(params[name][4], sum(emp2[4][:-1])) 
     )
 
-
 # print interaction energies in kcal/mol to json file
 E_c_ints=dict(zip(funcs,kcal*(ehfdiv+np.array(E_c_int))))
 print(E_c_ints) #prints out the correct E_c_int
@@ -301,7 +302,7 @@ if args.cp:
             - form_frags_cp.f1(params[name][3], sum(emp2_cp[3][:-1]))
         )
         E_c_int_cp.append(
-            form_com_cp.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional
+            form_com_cp.f1(params[name][4], emp2_cp[4][-1])  # MPAC25 uses f1 functional form
             - form_frags_cp.f1(params[name][4], sum(emp2_cp[4][:-1]))
         )
     
@@ -318,4 +319,3 @@ if args.cp:
     
     with open("BSSE_corrections_kcalmol.json","w",encoding="utf-8") as f:
         json.dump(bsse_corrections, f)
-

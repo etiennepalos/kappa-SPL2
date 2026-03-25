@@ -157,23 +157,19 @@ class run_pyscf():
         self.chkfile_dir=chkfile_dir
         dm, ehf, e, mo_coeff, coords, weights, Uh, Ex = self.run_mol(self.chkfile_name,self.chkfile_dir) #run the HF calculations
         
-        # ---- for CP calculations with ghost atoms, skip grid-based DFT integrals
-        if self.has_ghost_atoms:
-            #dummy values for grid integrals (not used in CP energy calculations)
-            self.rho_4_3 = 0.0
-            self.grad_square_over_rho_4_3 = 0.0
-            self.rho_3_2 = 0.0
-            self.grad_square_over_rho_7_6 = 0.0
-        else:
-            #normal calculation with grid integrals
-            aovals = dft.numint.eval_ao(self.mol, coords, deriv=1) #atomic orbital values
-            rho = dft.numint.eval_rho(self.mol, aovals, dm, xctype='GGA') #calculate the density
-            self.rho_4_3 = np.sum(weights*rho[0]**(4/3)) #calculate the LDA integral
-            grad_square = np.sum(np.square(rho[1:4]),axis=0) #define the square of the laplacian
-            non_zero = np.where(rho[0] > self.rho_trunc) #remove the points where the density is 0, to avoid dividing by 0.
-            self.grad_square_over_rho_4_3 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(4/3))) #calculate the GEA integral
-            self.rho_3_2 = np.sum(weights*rho[0]**(3/2)) #the LDA integral for the next order term W_{1/2}
-            self.grad_square_over_rho_7_6 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(7/6))) #the GEA integral for the next order term W_{1/2}
+        # calculate grid integrals thresholded for ghost atoms
+        aovals = dft.numint.eval_ao(self.mol, coords, deriv=1)
+        rho = dft.numint.eval_rho(self.mol, aovals, dm, xctype='GGA')
+        rho_0 = rho[0]
+        rho_0_safe = np.where(rho_0 > self.rho_trunc, rho_0, 0.0)
+        
+        self.rho_4_3 = np.sum(weights*(rho_0_safe**(4/3)))
+        grad_square = np.sum(np.square(rho[1:4]), axis=0)
+        non_zero = np.where(rho_0 > self.rho_trunc)
+        
+        self.grad_square_over_rho_4_3 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho_0_safe[non_zero]**(4/3)))
+        self.rho_3_2 = np.sum(weights*(rho_0_safe**(3/2)))
+        self.grad_square_over_rho_7_6 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho_0_safe[non_zero]**(7/6)))
         
         self.Ex=Ex
         self.Uh=Uh
@@ -200,23 +196,19 @@ class run_pyscf():
         self.chkfile_dir = chkfile_dir
         dm, ehf, e, mo_coeff, coords, weights, Uh, Ex = self.run_mol(self.chkfile_name, self.chkfile_dir)
         
-        # for CP calculations with ghost atoms, skip grid-based DFT integrals
-        if self.has_ghost_atoms:
-            # dummy values for grid integrals (not used in CP energy calculations)
-            self.rho_4_3 = 0.0
-            self.grad_square_over_rho_4_3 = 0.0
-            self.rho_3_2 = 0.0
-            self.grad_square_over_rho_7_6 = 0.0
-        else:
-            # normal calculation with grid integrals
-            aovals = dft.numint.eval_ao(self.mol, coords, deriv=1)
-            rho = dft.numint.eval_rho(self.mol, aovals, dm, xctype='GGA')
-            self.rho_4_3 = np.sum(weights*rho[0]**(4/3))
-            grad_square = np.sum(np.square(rho[1:4]), axis=0)
-            non_zero = np.where(rho[0] > self.rho_trunc)
-            self.grad_square_over_rho_4_3 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(4/3)))
-            self.rho_3_2 = np.sum(weights*rho[0]**(3/2))
-            self.grad_square_over_rho_7_6 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho[0][non_zero]**(7/6)))
+        # calculate grid integrals thresholded for ghost atoms
+        aovals = dft.numint.eval_ao(self.mol, coords, deriv=1)
+        rho = dft.numint.eval_rho(self.mol, aovals, dm, xctype='GGA')
+        rho_0 = rho[0]
+        rho_0_safe = np.where(rho_0 > self.rho_trunc, rho_0, 0.0)
+        
+        self.rho_4_3 = np.sum(weights*(rho_0_safe**(4/3)))
+        grad_square = np.sum(np.square(rho[1:4]), axis=0)
+        non_zero = np.where(rho_0 > self.rho_trunc)
+        
+        self.grad_square_over_rho_4_3 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho_0_safe[non_zero]**(4/3)))
+        self.rho_3_2 = np.sum(weights*(rho_0_safe**(3/2)))
+        self.grad_square_over_rho_7_6 = np.sum(weights[non_zero]*grad_square[non_zero]/(rho_0_safe[non_zero]**(7/6)))
         
         self.Ex = Ex
         self.Uh = Uh
