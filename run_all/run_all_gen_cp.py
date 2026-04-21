@@ -57,6 +57,7 @@ if __name__ == "__main__":
         charges = args.charges  # Expecting charges for each fragment and the complex in same order as mol
     else:
         charges = [0] * len(mols)  # Default all 0
+        #charges = [1] + [0] * (len(mols) - 2) + [1]  # ionic cluster example: 1st monomer and complex charge, rest 0
 
     from kappa_codes.output_utils import print_job_header, write_mpac_job_out
     start_time = print_job_header(mols, args.basis, use_df, args.cp, charges)
